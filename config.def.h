@@ -58,7 +58,7 @@ static const Layout layouts[] = {
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
-static const char *termcmd[]  = { "st", NULL };
+static const char *termcmd[]  = { "x-terminal-emulator", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -104,7 +104,6 @@ static const Button buttons[] = {
 	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
 	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
 	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
-	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
 	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
 	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
 	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
@@ -161,11 +160,39 @@ static size_t statusblock_temperature(char *destination, const Arg *a)
 	return len;
 }
 
+static size_t statusblock_popen(char *destination, const Arg *a)
+{
+	static time_t prev_time = 0;
+	time_t cur_time = time(NULL);
+	size_t len = 0;
+	if (cur_time - prev_time > 60*60) {
+		prev_time = cur_time;
+		FILE *f = popen(a->v, "r");
+		if (f) {
+			len = fread(destination, 1, 64, f);
+			pclose(f);
+		}
+	}
+	return len;
+}
+
+static const char *sunclock_cmd[]  = { "sunclock", NULL };
+static const char *htop_cmd[]  = { "x-terminal-emulator", "-e", "htop", NULL };
+static const char *wifi_cmd[]  = { "sh", "-c", "wpa_cli scan_results | tail -n +3 | sed 's/.*]\t//' | dmenu", NULL }; //TODO: this doesn't actually do anything, just shows list of networks from previous scan
+static const char *weather_cmd[]  = { "x-terminal-emulator", "-e", "sh", "-c", "curl https://wttr.in/ ; read foo", NULL };
+
+static void statusblock_spawn(const unsigned int button, const Arg *a)
+{
+	if(button == Button1 && a->v)
+		spawn(a);
+}
+
 static const StatusBlock statusblocks[] = {
-	{statusblock_temperature, {.v = "/sys/devices/virtual/thermal/thermal_zone0/temp"}},
-	{statusblock_wifi, {0}},
-	{statusblock_meminfo, {0}},
-	{statusblock_time, {0}}
+	{statusblock_popen, {.v = "curl https://wttr.in/?format=%c%t%20%w"}, statusblock_spawn, {.v = weather_cmd}},
+	{statusblock_wifi, {0}, statusblock_spawn, {.v = wifi_cmd}},
+	{statusblock_temperature, {.v = "/sys/devices/virtual/thermal/thermal_zone0/temp"}, NULL, {0}},
+	{statusblock_meminfo, {0}, statusblock_spawn, {.v = htop_cmd}},
+	{statusblock_time, {0}, statusblock_spawn, {.v = sunclock_cmd}}
 };
 
 static const struct timespec status_interval = {

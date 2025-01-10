@@ -66,7 +66,7 @@ enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
        NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
-enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
+enum { ClkTagBar, ClkLtSymbol, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
 typedef union {
@@ -135,8 +135,10 @@ struct Monitor {
 };
 
 typedef struct {
-	size_t (*func)(char *, const Arg *);
-	const Arg arg;
+	size_t (*update)(char *, const Arg *);
+	const Arg update_arg;
+	void (*clicked)(unsigned int button, const Arg *);
+	const Arg clicked_arg;
 } StatusBlock;
 
 typedef struct {
@@ -280,6 +282,8 @@ static Window root, wmcheckwin;
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
 struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
+
+static unsigned int statusblock_width[LENGTH(statusblocks)];
 
 /* function implementations */
 void
@@ -449,7 +453,14 @@ buttonpress(XEvent *e)
 		} else if (ev->x < x + TEXTW(selmon->ltsymbol))
 			click = ClkLtSymbol;
 		else if (ev->x > selmon->ww - (int)TEXTW(stext))
-			click = ClkStatusText;
+			for (unsigned int j = 0, cumulative_width = selmon->ww - drw_fontset_getwidth(drw, stext), separator_width = drw_fontset_getwidth(drw, "|"); j < LENGTH(statusblocks); ++j) {
+				if (ev->x < (cumulative_width += statusblock_width[j]) || j == LENGTH(statusblocks) - 1) {
+					if (statusblocks[j].clicked)
+						statusblocks[j].clicked(ev->button, &statusblocks[j].clicked_arg);
+					return;
+				} else if (ev->x < (cumulative_width += separator_width))
+					return;
+			}
 		else
 			click = ClkWinTitle;
 	} else if ((c = wintoclient(ev->window))) {
@@ -2034,9 +2045,11 @@ updatestatus(void)
 	for (int i = 0; i < LENGTH(statusblocks); ++i) {
 		if (i != 0)
 			*destination++ = '|';
-		destination += statusblocks[i].func(destination, &statusblocks[i].arg);
+		const size_t len = statusblocks[i].update(destination, &statusblocks[i].update_arg);
+		destination[len] = '\0';
+		statusblock_width[i] = drw_fontset_getwidth(drw, destination);
+		destination += len;
 	}
-	*destination = '\0';
 	drawbar(selmon);
 }
 

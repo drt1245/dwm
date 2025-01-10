@@ -27,7 +27,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
+#include <sys/select.h>
+#include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <X11/cursorfont.h>
@@ -130,6 +133,11 @@ struct Monitor {
 	Window barwin;
 	const Layout *lt[2];
 };
+
+typedef struct {
+	size_t (*func)(char *, const Arg *);
+	const Arg arg;
+} StatusBlock;
 
 typedef struct {
 	const char *class;
@@ -1224,9 +1232,7 @@ propertynotify(XEvent *e)
 	Window trans;
 	XPropertyEvent *ev = &e->xproperty;
 
-	if ((ev->window == root) && (ev->atom == XA_WM_NAME))
-		updatestatus();
-	else if (ev->state == PropertyDelete)
+	if (ev->state == PropertyDelete)
 		return; /* ignore */
 	else if ((c = wintoclient(ev->window))) {
 		switch(ev->atom) {
@@ -1378,14 +1384,34 @@ restack(Monitor *m)
 	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
 }
 
+static int
+wait_fd(int fd)
+{
+	fd_set in_fds;
+	FD_ZERO(&in_fds);
+	FD_SET(fd, &in_fds);
+	return pselect(fd+1, &in_fds, NULL, NULL, &status_interval, NULL);
+}
+
+static int
+XNextEventTimeout(Display *display, XEvent *event) //https://stackoverflow.com/a/32551161
+{
+	if (XPending(display) || wait_fd(ConnectionNumber(display)))
+		return XNextEvent(display, event);
+	else
+		return 1;
+}
+
 void
 run(void)
 {
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
-		if (handler[ev.type])
+	while (running)
+		if (XNextEventTimeout(dpy, &ev))
+			updatestatus();
+		else if (handler[ev.type])
 			handler[ev.type](&ev); /* call handler */
 }
 
@@ -2004,8 +2030,13 @@ updatesizehints(Client *c)
 void
 updatestatus(void)
 {
-	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-		strcpy(stext, "dwm-"VERSION);
+	char *destination = stext;
+	for (int i = 0; i < LENGTH(statusblocks); ++i) {
+		if (i != 0)
+			*destination++ = '|';
+		destination += statusblocks[i].func(destination, &statusblocks[i].arg);
+	}
+	*destination = '\0';
 	drawbar(selmon);
 }
 

@@ -114,3 +114,61 @@ static const Button buttons[] = {
 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
 };
 
+static size_t statusblock_time(char *destination, const Arg *a)
+{
+	time_t tim = time(NULL);
+	struct tm *lt = localtime(&tim);
+	return lt == NULL ? 0 : strftime(destination, 32, "%F %R", lt);
+}
+
+static size_t statusblock_meminfo(char *destination, const Arg *a)
+{
+	FILE *f = fopen("/proc/meminfo", "r");
+	if (f == NULL)
+		return 0;
+	unsigned long mem_total = 0, mem_avail = 0;
+	for (char line[128]; fgets(line, sizeof(line), f);)
+		if ((mem_total || sscanf(line, "MemTotal: %lu kB", &mem_total)) &&
+		    (mem_avail || sscanf(line, "MemAvailable: %lu kB", &mem_avail)))
+			break;
+	const size_t len = sprintf(destination, "💻%lu/%luMB", (mem_total - mem_avail) / 1024, mem_total / 1024);
+	fclose(f);
+	return len;
+}
+
+static size_t statusblock_wifi(char *destination, const Arg *a)
+{
+	FILE *f = fopen("/proc/net/wireless", "r");
+	if (f == NULL)
+		return 0;
+	int link = 0;
+	for (char line[128]; fgets(line, sizeof(line), f);)
+		if(sscanf(line, " wlan0: %*s %d. %*d. %*d ", &link))
+			break;
+	const size_t len = sprintf(destination, "📡%d%%", MIN(99, link * 100 / 70));
+	fclose(f);
+	return len;
+}
+
+static size_t statusblock_temperature(char *destination, const Arg *a)
+{
+	FILE *f = fopen(a->v, "r");
+	if (f == NULL)
+		return 0;
+	long temp = 0;
+	const size_t len = fscanf(f, "%ld", &temp) ? sprintf(destination, "🌡%ld℃", temp / 1000 ) : 0;
+	fclose(f);
+	return len;
+}
+
+static const StatusBlock statusblocks[] = {
+	{statusblock_temperature, {.v = "/sys/devices/virtual/thermal/thermal_zone0/temp"}},
+	{statusblock_wifi, {0}},
+	{statusblock_meminfo, {0}},
+	{statusblock_time, {0}}
+};
+
+static const struct timespec status_interval = {
+	.tv_sec = 2,
+	.tv_nsec = 0
+};

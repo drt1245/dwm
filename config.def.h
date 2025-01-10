@@ -1,5 +1,7 @@
 /* See LICENSE file for copyright and license details. */
 
+#include <X11/XF86keysym.h>
+
 /* appearance */
 static const unsigned int borderpx  = 1;        /* border pixel of windows */
 static const unsigned int snap      = 32;       /* snap pixel */
@@ -19,7 +21,7 @@ static const char *colors[][3]      = {
 };
 
 /* tagging */
-static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+static const char *tags[] = { "1", "2", "3" };
 
 static const Rule rules[] = {
 	/* xprop(1):
@@ -27,8 +29,7 @@ static const Rule rules[] = {
 	 *	WM_NAME(STRING) = title
 	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
-	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
-	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
+	{ "mpv",      NULL,       NULL,       0,            1,           -1 },
 };
 
 /* layout(s) */
@@ -45,56 +46,58 @@ static const Layout layouts[] = {
 };
 
 /* key definitions */
-#define MODKEY Mod1Mask
+#define MODALT Mod1Mask
+#define MODWIN Mod4Mask
 #define TAGKEYS(KEY,TAG) \
-	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
-	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
-	{ MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
-	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
-
-/* helper for spawning shell commands in the pre dwm-5.0 fashion */
-#define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
+	{ MODWIN,                       KEY,      view,           {.ui = 1 << TAG} }, \
+	{ MODWIN|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
+	{ MODWIN|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
+	{ MODWIN|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
 
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
 static const char *termcmd[]  = { "x-terminal-emulator", NULL };
+static const char *filemanager[]  = { "x-file-manager", NULL };
+static const char *browsercmd[]  = { "x-www-browser", NULL };
+static const char *cmd_vol_down[]  = { "pamixer", "-i", "5", NULL };
+static const char *cmd_vol_up[]    = { "pamixer", "-d", "5", NULL };
+static const char *cmd_vol_mute[]  = { "pamixer", "-t", NULL };
+
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
-	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
-	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
-	{ MODKEY,                       XK_b,      togglebar,      {0} },
-	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
-	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
-	{ MODKEY,                       XK_i,      incnmaster,     {.i = +1 } },
-	{ MODKEY,                       XK_d,      incnmaster,     {.i = -1 } },
-	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
-	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
-	{ MODKEY,                       XK_Return, zoom,           {0} },
-	{ MODKEY,                       XK_Tab,    view,           {0} },
-	{ MODKEY|ShiftMask,             XK_c,      killclient,     {0} },
-	{ MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
-	{ MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
-	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
-	{ MODKEY,                       XK_space,  setlayout,      {0} },
-	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
-	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
-	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
-	{ MODKEY,                       XK_comma,  focusmon,       {.i = -1 } },
-	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
-	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
-	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
+	{ MODWIN,                       XK_r,      spawn,          {.v = dmenucmd } },
+	{ MODWIN,                       XK_t,      spawn,          {.v = termcmd } },
+	{ MODWIN,                       XK_e,      spawn,          {.v = browsercmd } },
+	{ MODWIN,                       XK_e,      spawn,          {.v = filemanager } },
+	{ 0,                            XF86XK_AudioLowerVolume,  spawn,          {.v = cmd_vol_down } },
+	{ 0,                            XF86XK_AudioRaiseVolume,  spawn,          {.v = cmd_vol_up } },
+	{ 0,                            XF86XK_AudioMute,         spawn,          {.v = cmd_vol_mute } },
+	{ MODWIN,                       XK_b,      togglebar,      {0} },
+	{ MODALT,                       XK_Tab,    focusstack,     {.i = +1 } },
+	{ MODALT|ShiftMask,             XK_Tab,    focusstack,     {.i = -1 } },
+	{ MODWIN,                       XK_Up,     incnmaster,     {.i = +1 } },
+	{ MODWIN,                       XK_Down,   incnmaster,     {.i = -1 } },
+	{ MODWIN,                       XK_Left,   setmfact,       {.f = -0.05} },
+	{ MODWIN,                       XK_Right,  setmfact,       {.f = +0.05} },
+	{ MODWIN,                       XK_Return, zoom,           {0} },
+	{ MODWIN,                       XK_Tab,    view,           {0} },
+	{ MODALT,                       XK_F4,     killclient,     {0} },
+	{ MODWIN,                       XK_n,      setlayout,      {.v = &layouts[0]} },
+	{ MODWIN,                       XK_f,      setlayout,      {.v = &layouts[1]} },
+	{ MODWIN,                       XK_m,      setlayout,      {.v = &layouts[2]} },
+	{ MODWIN,                       XK_space,  togglefloating, {0} },
+	{ MODWIN,                       XK_0,      view,           {.ui = ~0 } },
+	{ MODWIN|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
+	{ MODWIN,                       XK_comma,  focusmon,       {.i = -1 } },
+	{ MODWIN,                       XK_period, focusmon,       {.i = +1 } },
+	{ MODWIN|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
+	{ MODWIN|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
 	TAGKEYS(                        XK_1,                      0)
 	TAGKEYS(                        XK_2,                      1)
 	TAGKEYS(                        XK_3,                      2)
-	TAGKEYS(                        XK_4,                      3)
-	TAGKEYS(                        XK_5,                      4)
-	TAGKEYS(                        XK_6,                      5)
-	TAGKEYS(                        XK_7,                      6)
-	TAGKEYS(                        XK_8,                      7)
-	TAGKEYS(                        XK_9,                      8)
-	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
+	{ MODWIN|ShiftMask,             XK_q,      quit,           {0} },
 };
 
 /* button definitions */
@@ -104,13 +107,13 @@ static const Button buttons[] = {
 	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
 	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
 	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
-	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
-	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
-	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
+	{ ClkClientWin,         MODWIN,         Button1,        movemouse,      {0} },
+	{ ClkClientWin,         MODWIN,         Button2,        togglefloating, {0} },
+	{ ClkClientWin,         MODWIN,         Button3,        resizemouse,    {0} },
 	{ ClkTagBar,            0,              Button1,        view,           {0} },
 	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
-	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
-	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
+	{ ClkTagBar,            MODWIN,         Button1,        tag,            {0} },
+	{ ClkTagBar,            MODWIN,         Button3,        toggletag,      {0} },
 };
 
 static size_t statusblock_time(char *destination, const Arg *a)
@@ -160,6 +163,11 @@ static size_t statusblock_temperature(char *destination, const Arg *a)
 	return len;
 }
 
+static size_t statusblock_static(char *destination, const Arg *a)
+{
+	return sprintf(destination, "%s", (const char*)a->v);
+}
+
 static size_t statusblock_popen(char *destination, const Arg *a)
 {
 	static time_t prev_time = 0;
@@ -178,6 +186,8 @@ static size_t statusblock_popen(char *destination, const Arg *a)
 
 static const char *sunclock_cmd[]  = { "sunclock", NULL };
 static const char *htop_cmd[]  = { "x-terminal-emulator", "-e", "htop", NULL };
+static const char *xosview_cmd[]  = { "xosview", NULL };
+static const char *xcalc_cmd[]  = { "xcalc", NULL };
 static const char *wifi_cmd[]  = { "sh", "-c", "wpa_cli scan_results | tail -n +3 | sed 's/.*]\t//' | dmenu", NULL }; //TODO: this doesn't actually do anything, just shows list of networks from previous scan
 static const char *weather_cmd[]  = { "x-terminal-emulator", "-e", "sh", "-c", "curl https://wttr.in/ ; read foo", NULL };
 
@@ -188,10 +198,11 @@ static void statusblock_spawn(const unsigned int button, const Arg *a)
 }
 
 static const StatusBlock statusblocks[] = {
-	{statusblock_popen, {.v = "curl https://wttr.in/?format=%c%t%20%w"}, statusblock_spawn, {.v = weather_cmd}},
+	//{statusblock_popen, {.v = "curl https://wttr.in/?format=%c%t%20%w"}, statusblock_spawn, {.v = weather_cmd}},
+	{statusblock_static, {.v = "🖩"}, statusblock_spawn, {.v = xcalc_cmd}},
 	{statusblock_wifi, {0}, statusblock_spawn, {.v = wifi_cmd}},
 	{statusblock_temperature, {.v = "/sys/devices/virtual/thermal/thermal_zone0/temp"}, NULL, {0}},
-	{statusblock_meminfo, {0}, statusblock_spawn, {.v = htop_cmd}},
+	{statusblock_meminfo, {0}, statusblock_spawn, {.v = xosview_cmd}},
 	{statusblock_time, {0}, statusblock_spawn, {.v = sunclock_cmd}}
 };
 
